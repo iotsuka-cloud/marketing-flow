@@ -33,7 +33,7 @@ const DEFAULT_NODES = [
   { id:"n1",  x:60,  y:40,  w:160, h:52, label:"Google 広告",           sub:"検索・ディスプレイ",      color:"blue"   },
   { id:"n2",  x:255, y:40,  w:160, h:52, label:"Meta 広告",              sub:"Facebook / Instagram",   color:"blue"   },
   { id:"n3",  x:450, y:40,  w:160, h:52, label:"Blastmail",              sub:"メール配信",              color:"blue"   },
-  { id:"n4",  x:60,  y:150, w:160, h:44, label:"LP（Google用）",         sub:"",                        color:"gray"   },
+  { id:"n4",  x:60,  y:150, w:160, h:68, label:"LP（Google用）",         sub:"",                        color:"gray",  url:"https://corp.craft-bank.com/cbo/lp-service" },
   { id:"n5",  x:255, y:150, w:160, h:44, label:"LP（Meta用）",           sub:"",                        color:"gray"   },
   { id:"n6",  x:450, y:150, w:160, h:44, label:"LP（メール用）",         sub:"",                        color:"gray"   },
   { id:"n7",  x:60,  y:255, w:160, h:44, label:"formrun",                sub:"Google流入",              color:"teal"   },
@@ -97,6 +97,9 @@ function EdgePath({ edge, nodes, selected, onClick }) {
 function NodeBox({ node, selected, connecting, onMouseDown, onDoubleClick }) {
   const c = COLORS[node.color] || COLORS.blue;
   const isTarget = connecting && connecting !== node.id;
+  const labelY = node.url
+    ? node.y + node.h * 0.32
+    : (node.sub ? node.y + node.h * 0.36 : node.y + node.h / 2);
   return (
     <g onMouseDown={e => onMouseDown(e, node.id)} onDoubleClick={e => onDoubleClick(e, node.id)}
       style={{ cursor: connecting ? (isTarget ? "crosshair" : "default") : "grab" }}>
@@ -104,7 +107,7 @@ function NodeBox({ node, selected, connecting, onMouseDown, onDoubleClick }) {
         fill={c.bg} stroke={selected ? c.active : c.border}
         strokeWidth={selected ? 2 : 1}
         style={{ filter: selected ? `drop-shadow(0 0 5px ${c.border}60)` : "none" }} />
-      <text x={cx(node)} y={node.y + (node.sub ? node.h * 0.36 : node.h / 2)}
+      <text x={cx(node)} y={labelY}
         textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={500} fill={c.text}>
         {node.label}
       </text>
@@ -113,6 +116,16 @@ function NodeBox({ node, selected, connecting, onMouseDown, onDoubleClick }) {
           textAnchor="middle" dominantBaseline="central" fontSize={11} fill={c.text} opacity={0.75}>
           {node.sub}
         </text>
+      )}
+      {node.url && (
+        <foreignObject x={node.x + 6} y={node.y + node.h - 22} width={node.w - 12} height={18}>
+          <a xmlns="http://www.w3.org/1999/xhtml" href={node.url} target="_blank" rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            style={{fontSize:"10px",color:"#185FA5",textDecoration:"underline",display:"block",
+              textAlign:"center",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:"18px"}}>
+            {node.url}
+          </a>
+        </foreignObject>
       )}
     </g>
   );
