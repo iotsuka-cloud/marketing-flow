@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Marketing Flow</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; }
+    button { font-family: inherit; cursor: pointer; }
+    input  { font-family: inherit; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+const { useState, useCallback, useRef, useEffect } = React;
+
+const COLORS = {
+  blue:   { bg:"#E6F1FB", border:"#378ADD", text:"#0C447C", active:"#185FA5" },
+  gray:   { bg:"#F1EFE8", border:"#888780", text:"#2C2C2A", active:"#5F5E5A" },
+  teal:   { bg:"#E1F5EE", border:"#1D9E75", text:"#085041", active:"#0F6E56" },
+  green:  { bg:"#EAF3DE", border:"#639922", text:"#173404", active:"#3B6D11" },
+  amber:  { bg:"#FAEEDA", border:"#BA7517", text:"#412402", active:"#854F0B" },
+  coral:  { bg:"#FAECE7", border:"#D85A30", text:"#4A1B0C", active:"#993C1D" },
+  purple: { bg:"#EEEDFE", border:"#534AB7", text:"#26215C", active:"#3C3489" },
+};
+
+const DEFAULT_NODES = [
+  { id:"n1",  x:60,  y:40,  w:160, h:52, label:"Google 広告",           sub:"検索・ディスプレイ",      color:"blue"   },
+  { id:"n2",  x:255, y:40,  w:160, h:52, label:"Meta 広告",              sub:"Facebook / Instagram",   color:"blue"   },
+  { id:"n3",  x:450, y:40,  w:160, h:52, label:"Blastmail",              sub:"メール配信",              color:"blue"   },
+  { id:"n4",  x:60,  y:150, w:160, h:44, label:"LP（Google用）",         sub:"",                        color:"gray"   },
+  { id:"n5",  x:255, y:150, w:160, h:44, label:"LP（Meta用）",           sub:"",                        color:"gray"   },
+  { id:"n6",  x:450, y:150, w:160, h:44, label:"LP（メール用）",         sub:"",                        color:"gray"   },
+  { id:"n7",  x:60,  y:255, w:160, h:44, label:"formrun",                sub:"Google流入",              color:"teal"   },
+  { id:"n8",  x:255, y:255, w:160, h:44, label:"formrun",                sub:"Meta流入",                color:"teal"   },
+  { id:"n9",  x:450, y:255, w:160, h:44, label:"formrun",                sub:"Blastmail流入",           color:"teal"   },
+  { id:"n10", x:175, y:360, w:320, h:52, label:"Google スプレッドシート",sub:"全チャネルのデータを集約", color:"green"  },
+  { id:"n11", x:255, y:470, w:160, h:44, label:"Make",                   sub:"ワークフロー自動化",      color:"amber"  },
+  { id:"n12", x:255, y:570, w:160, h:44, label:"Slack",                  sub:"通知・データ中継",        color:"coral"  },
+  { id:"n13", x:175, y:670, w:180, h:44, label:"Pipedrive（CRM）",       sub:"",                        color:"purple" },
+  { id:"n14", x:400, y:670, w:160, h:44, label:"既存顧客データ",         sub:"",                        color:"purple" },
+];
+
+const DEFAULT_EDGES = [
+  { id:"e1",  from:"n1",  to:"n4"  }, { id:"e2",  from:"n2",  to:"n5"  }, { id:"e3",  from:"n3",  to:"n6"  },
+  { id:"e4",  from:"n4",  to:"n7"  }, { id:"e5",  from:"n5",  to:"n8"  }, { id:"e6",  from:"n6",  to:"n9"  },
+  { id:"e7",  from:"n7",  to:"n10" }, { id:"e8",  from:"n8",  to:"n10" }, { id:"e9",  from:"n9",  to:"n10" },
+  { id:"e10", from:"n10", to:"n11" }, { id:"e11", from:"n11", to:"n12" }, { id:"e12", from:"n12", to:"n13" },
+  { id:"e13", from:"n13", to:"n14", dashed:true, label:"突合" },
+];
+
+let _nid = 100, _eid = 100;
+const uid  = () => "n" + (++_nid);
+const euid = () => "e" + (++_eid);
+
+const cx = n => n.x + n.w / 2;
+const cy = n => n.y + n.h / 2;
+
+function bestPorts(a, b) {
+  const dx = cx(b) - cx(a), dy = cy(b) - cy(a);
+  if (Math.abs(dy) >= Math.abs(dx)) {
+    return dy >= 0
+      ? [{ x: cx(a), y: a.y + a.h }, { x: cx(b), y: b.y }]
+      : [{ x: cx(a), y: a.y },        { x: cx(b), y: b.y + b.h }];
+  } else {
+    return dx >= 0
+      ? [{ x: a.x + a.w, y: cy(a) }, { x: b.x,        y: cy(b) }]
+      : [{ x: a.x,        y: cy(a) }, { x: b.x + b.w, y: cy(b) }];
+  }
+}
+
+function EdgePath({ edge, nodes, selected, onClick }) {
+  const a = nodes.find(n => n.id === edge.from);
+  const b = nodes.find(n => n.id === edge.to);
+  if (!a || !b) return null;
+  const [p1, p2] = bestPorts(a, b);
+  const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+  const d = `M${p1.x},${p1.y} C${p1.x},${mid.y} ${p2.x},${mid.y} ${p2.x},${p2.y}`;
+  return (
+    <g onClick={e => { e.stopPropagation(); onClick(edge.id); }} style={{ cursor: "pointer" }}>
+      <path d={d} fill="none" stroke="transparent" strokeWidth={12} />
+      <path d={d} fill="none"
+        stroke={selected ? "#534AB7" : "#B4B2A9"}
+        strokeWidth={selected ? 2 : 1.5}
+        strokeDasharray={edge.dashed ? "6 4" : "none"}
+        markerEnd="url(#arr)" />
+      {edge.label && <text x={mid.x} y={mid.y - 7} textAnchor="middle" fontSize={11} fill="#888780">{edge.label}</text>}
+    </g>
+  );
+}
+
+function NodeBox({ node, selected, connecting, onMouseDown, onDoubleClick }) {
+  const c = COLORS[node.color] || COLORS.blue;
+  const isTarget = connecting && connecting !== node.id;
+  return (
+    <g onMouseDown={e => onMouseDown(e, node.id)} onDoubleClick={e => onDoubleClick(e, node.id)}
+      style={{ cursor: connecting ? (isTarget ? "crosshair" : "default") : "grab" }}>
+      <rect x={node.x} y={node.y} width={node.w} height={node.h} rx={8}
+        fill={c.bg} stroke={selected ? c.active : c.border}
+        strokeWidth={selected ? 2 : 1}
+        style={{ filter: selected ? `drop-shadow(0 0 5px ${c.border}60)` : "none" }} />
+      <text x={cx(node)} y={node.y + (node.sub ? node.h * 0.36 : node.h / 2)}
+        textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={500} fill={c.text}>
+        {node.label}
+      </text>
+      {node.sub && (
+        <text x={cx(node)} y={node.y + node.h * 0.7}
+          textAnchor="middle" dominantBaseline="central" fontSize={11} fill={c.text} opacity={0.75}>
+          {node.sub}
+        </text>
+      )}
+    </g>
+  );
+}
+
+function EditPanel({ node, onUpdate, onDelete, onClose }) {
+  const [label, setLabel] = useState(node.label);
+  const [sub,   setSub]   = useState(node.sub || "");
+  const [color, setColor] = useState(node.color || "blue");
+  const s = { width:"100%", padding:"7px 10px", borderRadius:6, border:"1px solid #ddd",
+    fontSize:13, marginTop:3, outline:"none" };
+  return (
+    <div style={{ position:"absolute", top:8, right:8, width:220, background:"#fff",
+      borderRadius:10, boxShadow:"0 4px 20px rgba(0,0,0,.15)", padding:16, zIndex:50,
+      border:"1px solid #eee" }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+        <span style={{ fontSize:13, fontWeight:600, color:"#333" }}>ノードを編集</span>
+        <button onClick={onClose} style={{ background:"none", border:"none", fontSize:18, color:"#aaa", lineHeight:1 }}>×</button>
+      </div>
+      {[["ラベル", label, setLabel], ["サブテキスト", sub, setSub]].map(([lbl, val, set]) => (
+        <div key={lbl} style={{ marginBottom:10 }}>
+          <div style={{ fontSize:11, color:"#888" }}>{lbl}</div>
+          <input value={val} onChange={e => set(e.target.value)} style={s} />
+        </div>
+      ))}
+      <div style={{ marginBottom:14 }}>
+        <div style={{ fontSize:11, color:"#888", marginBottom:6 }}>カラー</div>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+          {Object.entries(COLORS).map(([k, c]) => (
+            <div key={k} onClick={() => setColor(k)} style={{
+              width:22, height:22, borderRadius:5, background:c.active, cursor:"pointer",
+              border: color === k ? "2.5px solid #333" : "2.5px solid transparent",
+            }} />
+          ))}
+        </div>
+      </div>
+      <button onClick={() => onUpdate({ ...node, label, sub, color })} style={{
+        width:"100%", padding:"8px", borderRadius:6, border:"none",
+        background:"#534AB7", color:"#fff", fontSize:13, fontWeight:600, marginBottom:8 }}>
+        適用
+      </button>
+      <button onClick={() => onDelete(node.id)} style={{
+        width:"100%", padding:"8px", borderRadius:6,
+        border:"1px solid #D85A30", background:"transparent", color:"#993C1D", fontSize:13 }}>
+        削除
+      </button>
+    </div>
+  );
+}
+
+function GithubModal({ data, onClose }) {
+  const [token,  setToken]  = useState("");
+  const [owner,  setOwner]  = useState("iotsuka-cloud");
+  const [repo,   setRepo]   = useState("marketing-flow");
+  const [path,   setPath]   = useState("flow/marketing-flow.json");
+  const [status, setStatus] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!token) { setStatus("⚠️ Personal Access Tokenを入力してください"); return; }
+    setSaving(true); setStatus("保存中...");
+    try {
+      let sha;
+      const get = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+        { headers: { Authorization: `token ${token}`, Accept: "application/vnd.github.v3+json" } }
+      );
+      if (get.ok) { const j = await get.json(); sha = j.sha; }
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+      const put = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+        { method:"PUT",
+          headers: { Authorization: `token ${token}`, "Content-Type":"application/json" },
+          body: JSON.stringify({ message:"Update marketing flow", content, ...(sha ? { sha } : {}) }) }
+      );
+      setStatus(put.ok ? "✅ GitHubに保存しました！" : "❌ " + (await put.json()).message);
+    } catch (e) { setStatus("❌ " + e.message); }
+    setSaving(false);
+  };
+
+  const inp = { width:"100%", padding:"8px 10px", borderRadius:6, border:"1px solid #ddd",
+    fontSize:13, outline:"none", boxSizing:"border-box" };
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.45)",
+      display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
+      <div style={{ background:"#fff", borderRadius:12, padding:28, width:400,
+        boxShadow:"0 8px 40px rgba(0,0,0,.2)" }}>
+        <div style={{ fontSize:16, fontWeight:600, marginBottom:20 }}>💾 GitHub に保存</div>
+        {[
+          { label:"Personal Access Token *", val:token, set:setToken, type:"password", ph:"ghp_xxxxxxxxxx" },
+          { label:"オーナー名", val:owner, set:setOwner, ph:"iotsuka-cloud" },
+          { label:"リポジトリ名", val:repo, set:setRepo, ph:"marketing-flow" },
+          { label:"保存パス", val:path, set:setPath, ph:"flow/marketing-flow.json" },
+        ].map(f => (
+          <div key={f.label} style={{ marginBottom:12 }}>
+            <div style={{ fontSize:12, color:"#666", marginBottom:3 }}>{f.label}</div>
+            <input type={f.type || "text"} value={f.val} onChange={e => f.set(e.target.value)}
+              placeholder={f.ph} style={inp} />
+          </div>
+        ))}
+        {status && (
+          <div style={{ fontSize:12, margin:"8px 0",
+            color: status.startsWith("✅") ? "#3B6D11" : status.startsWith("❌") ? "#993C1D" : "#666" }}>
+            {status}
+          </div>
+        )}
+        <div style={{ display:"flex", gap:10, marginTop:12 }}>
+          <button onClick={save} disabled={saving} style={{ flex:1, padding:"9px", borderRadius:7,
+            border:"none", background:"#534AB7", color:"#fff", fontSize:13, fontWeight:600 }}>
+            {saving ? "保存中..." : "保存する"}
+          </button>
+          <button onClick={onClose} style={{ flex:1, padding:"9px", borderRadius:7,
+            border:"1px solid #ddd", background:"transparent", color:"#666", fontSize:13 }}>
+            キャンセル
+          </button>
+        </div>
+        <div style={{ fontSize:11, color:"#aaa", marginTop:12, lineHeight:1.7 }}>
+          ※ GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens から発行。
+          Contentsの Read & Write 権限が必要です。
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [nodes,      setNodes]      = useState(DEFAULT_NODES);
+  const [edges,      setEdges]      = useState(DEFAULT_EDGES);
+  const [selNode,    setSelNode]    = useState(null);
+  const [selEdge,    setSelEdge]    = useState(null);
+  const [editing,    setEditing]    = useState(null);
+  const [connecting, setConnecting] = useState(null);
+  const [showGH,     setShowGH]     = useState(false);
+  const drag   = useRef(null);
+  const svgRef = useRef(null);
+  const SVG_W = 680, SVG_H = 780;
+
+  const onNodeMouseDown = useCallback((e, id) => {
+    if (connecting) {
+      if (connecting !== id) setEdges(es => [...es, { id: euid(), from: connecting, to: id }]);
+      setConnecting(null); return;
+    }
+    e.stopPropagation();
+    setSelNode(id); setSelEdge(null); setEditing(null);
+    const n = nodes.find(n => n.id === id);
+    const rect = svgRef.current.getBoundingClientRect();
+    drag.current = { id, ox: e.clientX - n.x - rect.left, oy: e.clientY - n.y - rect.top };
+  }, [nodes, connecting]);
+
+  useEffect(() => {
+    const onMove = e => {
+      if (!drag.current) return;
+      const rect = svgRef.current.getBoundingClientRect();
+      setNodes(ns => ns.map(n => n.id === drag.current.id
+        ? { ...n, x: Math.max(0, e.clientX - drag.current.ox - rect.left),
+                  y: Math.max(0, e.clientY - drag.current.oy - rect.top) } : n));
+    };
+    const onUp = () => { drag.current = null; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, []);
+
+  const updateNode = n => { setNodes(ns => ns.map(x => x.id === n.id ? n : x)); setEditing(null); };
+  const deleteNode = id => {
+    setNodes(ns => ns.filter(n => n.id !== id));
+    setEdges(es => es.filter(e => e.from !== id && e.to !== id));
+    setSelNode(null); setEditing(null);
+  };
+  const deleteEdge = id => { setEdges(es => es.filter(e => e.id !== id)); setSelEdge(null); };
+  const bgClick = () => { setSelNode(null); setSelEdge(null); setEditing(null); if (!connecting) return; setConnecting(null); };
+
+  const btnBase = { padding:"7px 14px", borderRadius:7, fontSize:13, fontWeight:600, border:"1px solid #ddd", background:"#fff", color:"#333" };
+  const btnPrimary = { ...btnBase, background:"#534AB7", color:"#fff", border:"none" };
+  const btnDanger  = { ...btnBase, border:"1px solid #D85A30", color:"#993C1D" };
+  const btnActive  = { ...btnBase, background:"#534AB7", color:"#fff", border:"none" };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100vh", background:"#f5f5f0", overflow:"hidden" }}>
+      {/* ツールバー */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 16px",
+        background:"#fff", borderBottom:"1px solid #eee", flexShrink:0, flexWrap:"wrap" }}>
+        <span style={{ fontSize:15, fontWeight:700, color:"#222", marginRight:8 }}>📊 Marketing Flow</span>
+        <button style={btnBase} onClick={() =>
+          setNodes(ns => [...ns, { id: uid(), x: 200, y: 300, w: 160, h: 44, label:"新しいノード", sub:"", color:"blue" }])}>
+          ＋ ノード追加
+        </button>
+        <button style={connecting ? btnActive : btnBase}
+          onClick={() => setConnecting(c => c ? null : selNode || "__pick__")}>
+          {connecting ? "接続先をクリック…" : "↗ 矢印を追加"}
+        </button>
+        {selEdge && (
+          <button style={btnDanger} onClick={() => deleteEdge(selEdge)}>矢印を削除</button>
+        )}
+        <div style={{ flex:1 }} />
+        <button style={btnPrimary} onClick={() => setShowGH(true)}>💾 GitHubに保存</button>
+      </div>
+
+      {/* 接続モードのヒント */}
+      {connecting && (
+        <div style={{ background:"#EEEDFE", borderBottom:"1px solid #534AB7",
+          padding:"6px 16px", fontSize:12, color:"#3C3489" }}>
+          接続したいノードをクリックしてください。キャンセルはツールバーのボタンから。
+        </div>
+      )}
+
+      {/* キャンバス */}
+      <div style={{ flex:1, overflow:"auto", position:"relative" }}>
+        <svg ref={svgRef} width={SVG_W} height={SVG_H}
+          style={{ display:"block", margin:"24px auto", background:"#fff",
+            borderRadius:12, boxShadow:"0 2px 16px rgba(0,0,0,.08)",
+            cursor: connecting ? "crosshair" : "default" }}
+          onClick={bgClick}>
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M2 1L8 5L2 9" fill="none" stroke="#B4B2A9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </marker>
+          </defs>
+          {edges.map(e => (
+            <EdgePath key={e.id} edge={e} nodes={nodes} selected={selEdge === e.id}
+              onClick={id => { setSelEdge(id); setSelNode(null); setEditing(null); }} />
+          ))}
+          {nodes.map(n => (
+            <NodeBox key={n.id} node={n} selected={selNode === n.id} connecting={connecting}
+              onMouseDown={onNodeMouseDown} onDoubleClick={(e, id) => { e.stopPropagation(); setEditing(id); }} />
+          ))}
+        </svg>
+
+        {/* 編集パネル */}
+        {editing && (() => {
+          const n = nodes.find(x => x.id === editing);
+          return n ? <EditPanel node={n} onUpdate={updateNode} onDelete={deleteNode} onClose={() => setEditing(null)} /> : null;
+        })()}
+      </div>
+
+      {/* フッター */}
+      <div style={{ padding:"7px 16px", background:"#fff", borderTop:"1px solid #eee",
+        fontSize:11, color:"#aaa", flexShrink:0 }}>
+        ダブルクリック：編集　／　ドラッグ：移動　／　「↗ 矢印を追加」→ノードをクリック：接続　／　矢印クリック：選択して削除
+      </div>
+
+      {showGH && <GithubModal data={{ nodes, edges, version:1 }} onClose={() => setShowGH(false)} />}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+  </script>
+</body>
+</html>
