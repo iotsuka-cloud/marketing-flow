@@ -285,7 +285,7 @@ function SiteBox({item,sel,connMode,onMD,onDbl}){
       {hasUrl && (
         <text x={item.x+item.w/2} y={item.y+boxH-5} textAnchor="middle"
           fontSize={9} fill={tx} opacity={0.55}>
-          {'↗ '+item.url.replace(/https?:///,'').substring(0,26)}
+          {'↗ '+item.url.replace('https://','').replace('http://','').substring(0,26)}
         </text>
       )}
     </g>
