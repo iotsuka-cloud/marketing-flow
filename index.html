@@ -103,16 +103,25 @@ function SiteItem({item,sel,conn,onMD,onDbl}){
   const bg=item.bg||"#fff";
   const bd=BORDER_MAP[bg]||"#ccc";
   const tx=TEXT_MAP[bg]||"#333";
-  return(<g onMouseDown={e=>onMD(e,item.id)} onDoubleClick={e=>onDbl(e,item.id)} style={{cursor:conn?"crosshair":"grab"}}>
+  const hasSub=!!item.sub;
+  const hasUrl=!!item.url;
+  const mainY=hasSub?item.y+item.h*0.35:(hasUrl?item.y+item.h*0.32:item.y+item.h/2);
+  const handleClick=e=>{if(hasUrl&&!conn){e.stopPropagation();window.open(item.url,'_blank');}};
+  return(<g onMouseDown={e=>onMD(e,item.id)} onDoubleClick={e=>onDbl(e,item.id)}
+    onClick={handleClick}
+    style={{cursor:conn?"crosshair":hasUrl?"pointer":"grab"}}>
     <rect x={item.x} y={item.y} width={item.w} height={item.h} rx={7}
       fill={bg} stroke={sel?"#534AB7":bd} strokeWidth={sel?2:1.5}/>
-    <text x={item.x+item.w/2} y={item.y+item.h/2} textAnchor="middle" dominantBaseline="central"
+    <text x={item.x+item.w/2} y={mainY} textAnchor="middle" dominantBaseline="central"
       fontSize={item.fontSize||13} fontWeight={item.bold?600:400} fill={tx}
       fontFamily={item.mono?"monospace":"inherit"}>
       {item.text}
     </text>
-  </g>);
-}
+    {hasSub&&<text x={item.x+item.w/2} y={item.y+item.h*0.7} textAnchor="middle" dominantBaseline="central"
+      fontSize={(item.fontSize||13)-2} fill={tx} opacity={0.7}>{item.sub}</text>}
+    {hasUrl&&<text x={item.x+item.w/2} y={item.y+item.h-6} textAnchor="middle"
+      fontSize={9} fill={tx} opacity={0.55}>↗ {item.url.replace(/https?:///,'').substring(0,30)}</text>}
+  </g>);}
 
 function SiteTextItem({item,sel,onMD,onDbl}){
   return(<g onMouseDown={e=>onMD(e,item.id)} onDoubleClick={e=>onDbl(e,item.id)} style={{cursor:"grab"}}>
@@ -123,6 +132,8 @@ function SiteTextItem({item,sel,onMD,onDbl}){
 
 function SiteEditPanel({item,onU,onD,onC}){
   const[text,setText]=useState(item.text||"");
+  const[sub,setSub]=useState(item.sub||"");
+  const[url,setUrl]=useState(item.url||"");
   const[bg,setBg]=useState(item.bg||"#fff");
   const[w,setW]=useState(item.w||150);
   const[h,setH]=useState(item.h||36);
@@ -139,7 +150,9 @@ function SiteEditPanel({item,onU,onD,onC}){
       <span style={{fontSize:13,fontWeight:600}}>{isText?"テキストを編集":"ボックスを編集"}</span>
       <button onClick={onC} style={{background:"none",border:"none",fontSize:18,color:"#aaa"}}>×</button>
     </div>
-    <div style={row}><div style={lbl}>テキスト</div><textarea value={text} onChange={e=>setText(e.target.value)} style={{...si,height:60,resize:"vertical"}}/></div>
+    <div style={row}><div style={lbl}>テキスト（メイン）</div><textarea value={text} onChange={e=>setText(e.target.value)} style={{...si,height:50,resize:"vertical"}}/></div>
+    {!isText&&<div style={row}><div style={lbl}>サブテキスト（任意）</div><input value={sub} onChange={e=>setSub(e.target.value)} placeholder="補足テキスト" style={si}/></div>}
+    {!isText&&<div style={row}><div style={lbl}>URL（クリックで開く・任意）</div><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://..." style={si}/></div>}
     <div style={row}><div style={lbl}>文字サイズ</div><input type="number" value={fs} min={8} max={32} onChange={e=>setFs(+e.target.value)} style={si}/></div>
     <div style={{...row,display:"flex",gap:10}}>
       <label style={{display:"flex",alignItems:"center",gap:4,fontSize:12,cursor:"pointer"}}><input type="checkbox" checked={bold} onChange={e=>setBold(e.target.checked)}/> 太字</label>
@@ -160,7 +173,7 @@ function SiteEditPanel({item,onU,onD,onC}){
       <div style={lbl}>文字色</div>
       <input value={color} onChange={e=>setColor(e.target.value)} placeholder="#333333" style={si}/>
     </div>)}
-    <button onClick={()=>onU({...item,text,bg,w:+w,h:+h,fontSize:+fs,bold,mono,color})} style={{width:"100%",padding:"8px",borderRadius:6,border:"none",background:"#534AB7",color:"#fff",fontSize:13,fontWeight:600,marginBottom:8}}>適用</button>
+    <button onClick={()=>onU({...item,text,sub,url,bg,w:+w,h:+h,fontSize:+fs,bold,mono,color})} style={{width:"100%",padding:"8px",borderRadius:6,border:"none",background:"#534AB7",color:"#fff",fontSize:13,fontWeight:600,marginBottom:8}}>適用</button>
     <button onClick={()=>onD(item.id)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #D85A30",background:"transparent",color:"#993C1D",fontSize:13}}>削除</button>
   </div>);}
 
