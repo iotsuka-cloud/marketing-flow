@@ -6,158 +6,230 @@
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0}
-button,input,textarea{font-family:inherit}
-.edit-input{border:2px solid #534AB7;border-radius:6px;padding:4px 8px;font-size:13px;font-weight:600;outline:none;background:#fff;width:100%;min-width:80px}
-.node-box{transition:box-shadow .15s,border-color .15s}
-.node-box:hover{box-shadow:0 2px 8px rgba(83,74,183,.25)}
-</style>
+<style>*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0}button,input,select,textarea{font-family:inherit}</style>
 </head>
-<body>
-<div id="root"></div>
+<body><div id="root"></div>
 <script type="text/babel">
-const {useState,useCallback,useRef,useEffect,useReducer} = React;
+const {useState,useCallback,useRef,useEffect,useMemo}=React;
 
-/* ========== FLOW TAB ========== */
-const FC={blue:{bg:"#E6F1FB",bd:"#378ADD",tx:"#0C447C",ac:"#185FA5"},gray:{bg:"#F1EFE8",bd:"#888780",tx:"#2C2C2A",ac:"#5F5E5A"},teal:{bg:"#E1F5EE",bd:"#1D9E75",tx:"#085041",ac:"#0F6E56"},green:{bg:"#EAF3DE",bd:"#639922",tx:"#173404",ac:"#3B6D11"},amber:{bg:"#FAEEDA",bd:"#BA7517",tx:"#412402",ac:"#854F0B"},coral:{bg:"#FAECE7",bd:"#D85A30",tx:"#4A1B0C",ac:"#993C1D"},purple:{bg:"#EEEDFE",bd:"#534AB7",tx:"#26215C",ac:"#3C3489"},pink:{bg:"#FBEAF0",bd:"#D4537E",tx:"#4B1528",ac:"#993556"}};
-const DN=[{id:"n1",x:60,y:40,w:160,h:52,label:"Google 広告",sub:"検索・ディスプレイ",color:"blue"},{id:"n2",x:255,y:40,w:160,h:52,label:"Meta 広告",sub:"Facebook / Instagram",color:"blue"},{id:"n3",x:450,y:40,w:160,h:52,label:"Blastmail",sub:"メール配信",color:"blue"},{id:"n4",x:60,y:150,w:160,h:68,label:"LP（Google用）",sub:"",color:"gray",url:"https://corp.craft-bank.com/cbo/lp-service"},{id:"n5",x:255,y:150,w:160,h:44,label:"LP（Meta用）",sub:"",color:"gray"},{id:"n6",x:450,y:150,w:160,h:44,label:"LP（メール用）",sub:"",color:"gray"},{id:"n7",x:60,y:270,w:160,h:44,label:"formrun",sub:"Google流入",color:"teal"},{id:"n8",x:255,y:270,w:160,h:44,label:"formrun",sub:"Meta流入",color:"teal"},{id:"n9",x:450,y:270,w:160,h:44,label:"formrun",sub:"Blastmail流入",color:"teal"},{id:"n10",x:175,y:370,w:320,h:52,label:"Google スプレッドシート",sub:"全チャネルのデータを集約",color:"green"},{id:"n11",x:255,y:480,w:160,h:44,label:"Make",sub:"ワークフロー自動化",color:"amber"},{id:"n12",x:255,y:580,w:160,h:44,label:"Slack",sub:"通知・データ中継",color:"coral"},{id:"n13",x:175,y:680,w:180,h:44,label:"Pipedrive（CRM）",sub:"",color:"purple"},{id:"n14",x:400,y:680,w:160,h:44,label:"既存顧客データ",sub:"",color:"purple"}];
+/* ── カラーパレット ── */
+const PALETTE=['#E6F1FB','#E1F5EE','#EAF3DE','#FAEEDA','#FAECE7','#EEEDFE','#FBEAF0','#F1EFE8','#E0F7F7','#FFF9E0','#FFEBEE','#E8F5E9','#fff','#f0f0f0','#222'];
+const BORDER_MAP={'#E6F1FB':'#378ADD','#E1F5EE':'#1D9E75','#EAF3DE':'#639922','#FAEEDA':'#BA7517','#FAECE7':'#D85A30','#EEEDFE':'#534AB7','#FBEAF0':'#D4537E','#F1EFE8':'#888780','#E0F7F7':'#0097A7','#FFF9E0':'#F9A825','#FFEBEE':'#E53935','#E8F5E9':'#43A047','#fff':'#ccc','#f0f0f0':'#bbb','#222':'#000'};
+const TEXT_MAP={'#E6F1FB':'#0C447C','#E1F5EE':'#085041','#EAF3DE':'#173404','#FAEEDA':'#412402','#FAECE7':'#4A1B0C','#EEEDFE':'#26215C','#FBEAF0':'#4B1528','#F1EFE8':'#2C2C2A','#E0F7F7':'#004D57','#FFF9E0':'#5D4000','#FFEBEE':'#5D0000','#E8F5E9':'#1B5E20','#fff':'#222','#f0f0f0':'#333','#222':'#fff'};
+
+/* ── Flow data ── */
+const DN=[
+  {id:"n1",x:60,y:40,w:160,h:52,label:"Google 広告",sub:"検索・ディスプレイ",color:"blue"},
+  {id:"n2",x:255,y:40,w:160,h:52,label:"Meta 広告",sub:"Facebook / Instagram",color:"blue"},
+  {id:"n3",x:450,y:40,w:160,h:52,label:"Blastmail",sub:"メール配信",color:"blue"},
+  {id:"n4",x:60,y:150,w:160,h:68,label:"LP（Google用）",sub:"",color:"gray",url:"https://corp.craft-bank.com/cbo/lp-service"},
+  {id:"n5",x:255,y:150,w:160,h:44,label:"LP（Meta用）",sub:"",color:"gray"},
+  {id:"n6",x:450,y:150,w:160,h:44,label:"LP（メール用）",sub:"",color:"gray"},
+  {id:"n7",x:60,y:270,w:160,h:44,label:"formrun",sub:"Google流入",color:"teal"},
+  {id:"n8",x:255,y:270,w:160,h:44,label:"formrun",sub:"Meta流入",color:"teal"},
+  {id:"n9",x:450,y:270,w:160,h:44,label:"formrun",sub:"Blastmail流入",color:"teal"},
+  {id:"n10",x:175,y:370,w:320,h:52,label:"Google スプレッドシート",sub:"全チャネルのデータを集約",color:"green"},
+  {id:"n11",x:255,y:480,w:160,h:44,label:"Make",sub:"ワークフロー自動化",color:"amber"},
+  {id:"n12",x:255,y:580,w:160,h:44,label:"Slack",sub:"通知・データ中継",color:"coral"},
+  {id:"n13",x:175,y:680,w:180,h:44,label:"Pipedrive（CRM）",sub:"",color:"purple"},
+  {id:"n14",x:400,y:680,w:160,h:44,label:"既存顧客データ",sub:"",color:"purple"},
+];
 const DE=[{id:"e1",from:"n1",to:"n4"},{id:"e2",from:"n2",to:"n5"},{id:"e3",from:"n3",to:"n6"},{id:"e4",from:"n4",to:"n7"},{id:"e5",from:"n5",to:"n8"},{id:"e6",from:"n6",to:"n9"},{id:"e7",from:"n7",to:"n10"},{id:"e8",from:"n8",to:"n10"},{id:"e9",from:"n9",to:"n10"},{id:"e10",from:"n10",to:"n11"},{id:"e11",from:"n11",to:"n12"},{id:"e12",from:"n12",to:"n13"},{id:"e13",from:"n13",to:"n14",dashed:true,label:"突合"}];
-let _n=100,_e=100;const uid=()=>"n"+(++_n),euid=()=>"e"+(++_e);
+const FC={blue:{bg:"#E6F1FB",bd:"#378ADD",tx:"#0C447C",ac:"#185FA5"},gray:{bg:"#F1EFE8",bd:"#888780",tx:"#2C2C2A",ac:"#5F5E5A"},teal:{bg:"#E1F5EE",bd:"#1D9E75",tx:"#085041",ac:"#0F6E56"},green:{bg:"#EAF3DE",bd:"#639922",tx:"#173404",ac:"#3B6D11"},amber:{bg:"#FAEEDA",bd:"#BA7517",tx:"#412402",ac:"#854F0B"},coral:{bg:"#FAECE7",bd:"#D85A30",tx:"#4A1B0C",ac:"#993C1D"},purple:{bg:"#EEEDFE",bd:"#534AB7",tx:"#26215C",ac:"#3C3489"}};
+let _n=100,_e=100,_s=100;
+const uid=()=>"n"+(++_n),euid=()=>"e"+(++_e),suid=()=>"s"+(++_s);
 const cx=n=>n.x+n.w/2,cy=n=>n.y+n.h/2;
 function ports(a,b){const dx=cx(b)-cx(a),dy=cy(b)-cy(a);if(Math.abs(dy)>=Math.abs(dx)){return dy>=0?[{x:cx(a),y:a.y+a.h},{x:cx(b),y:b.y}]:[{x:cx(a),y:a.y},{x:cx(b),y:b.y+b.h}];}return dx>=0?[{x:a.x+a.w,y:cy(a)},{x:b.x,y:cy(b)}]:[{x:a.x,y:cy(a)},{x:b.x+b.w,y:cy(b)}];}
+
+/* ── FlowTab ── */
 function FlowEdge({edge,nodes,sel,onClick}){const a=nodes.find(n=>n.id===edge.from),b=nodes.find(n=>n.id===edge.to);if(!a||!b)return null;const[p1,p2]=ports(a,b),m={x:(p1.x+p2.x)/2,y:(p1.y+p2.y)/2};const d=`M${p1.x},${p1.y} C${p1.x},${m.y} ${p2.x},${m.y} ${p2.x},${p2.y}`;return(<g onClick={e=>{e.stopPropagation();onClick(edge.id);}} style={{cursor:"pointer"}}><path d={d} fill="none" stroke="transparent" strokeWidth={12}/><path d={d} fill="none" stroke={sel?"#534AB7":"#B4B2A9"} strokeWidth={sel?2:1.5} strokeDasharray={edge.dashed?"6 4":"none"} markerEnd="url(#arr)"/>{edge.label&&<text x={m.x} y={m.y-7} textAnchor="middle" fontSize={11} fill="#888780">{edge.label}</text>}</g>);}
-function FlowNode({node,sel,conn,onMD,onDbl}){const c=FC[node.color]||FC.blue;const labelY=node.url?node.y+node.h*0.32:(node.sub?node.y+node.h*0.36:node.y+node.h/2);return(<g onMouseDown={e=>onMD(e,node.id)} onDoubleClick={e=>onDbl(e,node.id)} style={{cursor:conn?"crosshair":"grab"}}><rect x={node.x} y={node.y} width={node.w} height={node.h} rx={8} fill={c.bg} stroke={sel?c.ac:c.bd} strokeWidth={sel?2:1}/><text x={cx(node)} y={labelY} textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={500} fill={c.tx}>{node.label}</text>{node.sub&&<text x={cx(node)} y={node.y+node.h*0.7} textAnchor="middle" dominantBaseline="central" fontSize={11} fill={c.tx} opacity={0.75}>{node.sub}</text>}{node.url&&<foreignObject x={node.x+6} y={node.y+node.h-22} width={node.w-12} height={18}><a xmlns="http://www.w3.org/1999/xhtml" href={node.url} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{fontSize:"10px",color:"#185FA5",textDecoration:"underline",display:"block",textAlign:"center",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:"18px"}}>{node.url}</a></foreignObject>}</g>);}
+function FlowNode({node,sel,conn,onMD,onDbl}){const c=FC[node.color]||FC.blue;const lY=node.url?node.y+node.h*0.32:(node.sub?node.y+node.h*0.36:node.y+node.h/2);return(<g onMouseDown={e=>onMD(e,node.id)} onDoubleClick={e=>onDbl(e,node.id)} style={{cursor:conn?"crosshair":"grab"}}><rect x={node.x} y={node.y} width={node.w} height={node.h} rx={8} fill={c.bg} stroke={sel?c.ac:c.bd} strokeWidth={sel?2:1}/><text x={cx(node)} y={lY} textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={500} fill={c.tx}>{node.label}</text>{node.sub&&<text x={cx(node)} y={node.y+node.h*0.7} textAnchor="middle" dominantBaseline="central" fontSize={11} fill={c.tx} opacity={0.75}>{node.sub}</text>}{node.url&&<foreignObject x={node.x+6} y={node.y+node.h-22} width={node.w-12} height={18}><a xmlns="http://www.w3.org/1999/xhtml" href={node.url} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{fontSize:"10px",color:"#185FA5",textDecoration:"underline",display:"block",textAlign:"center",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:"18px"}}>{node.url}</a></foreignObject>}</g>);}
 function FlowEdit({node,onU,onD,onC}){const[l,setL]=useState(node.label),[s,setS]=useState(node.sub||""),[col,setCol]=useState(node.color||"blue"),[u,setU]=useState(node.url||"");const si={width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid #ddd",fontSize:13,marginTop:3,outline:"none"};return(<div style={{position:"absolute",top:8,right:8,width:230,background:"#fff",borderRadius:10,boxShadow:"0 4px 20px rgba(0,0,0,.15)",padding:16,zIndex:50,border:"1px solid #eee"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><span style={{fontSize:13,fontWeight:600}}>ノードを編集</span><button onClick={onC} style={{background:"none",border:"none",fontSize:18,color:"#aaa"}}>×</button></div>{[["ラベル",l,setL],["サブテキスト",s,setS],["URL（任意）",u,setU]].map(([lb,v,sv])=>(<div key={lb} style={{marginBottom:10}}><div style={{fontSize:11,color:"#888"}}>{lb}</div><input value={v} onChange={e=>sv(e.target.value)} style={si}/></div>))}<div style={{marginBottom:14}}><div style={{fontSize:11,color:"#888",marginBottom:6}}>カラー</div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{Object.entries(FC).map(([k,cv])=>(<div key={k} onClick={()=>setCol(k)} style={{width:22,height:22,borderRadius:5,background:cv.ac,cursor:"pointer",border:col===k?"2.5px solid #333":"2.5px solid transparent"}}/>))}</div></div><button onClick={()=>onU({...node,label:l,sub:s,color:col,url:u,h:u&&!node.url?68:(!u&&node.url?44:node.h)})} style={{width:"100%",padding:"8px",borderRadius:6,border:"none",background:"#534AB7",color:"#fff",fontSize:13,fontWeight:600,marginBottom:8}}>適用</button><button onClick={()=>onD(node.id)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #D85A30",background:"transparent",color:"#993C1D",fontSize:13}}>削除</button></div>);}
 function FlowTab(){const[nodes,setNodes]=useState(DN),[edges,setEdges]=useState(DE),[selN,setSelN]=useState(null),[selE,setSelE]=useState(null),[editing,setEditing]=useState(null),[conn,setConn]=useState(null);const drag=useRef(null),svgRef=useRef(null);const onMD=useCallback((e,id)=>{if(conn){if(conn!==id)setEdges(es=>[...es,{id:euid(),from:conn,to:id}]);setConn(null);return;}e.stopPropagation();setSelN(id);setSelE(null);setEditing(null);const n=nodes.find(n=>n.id===id),rect=svgRef.current.getBoundingClientRect();drag.current={id,ox:e.clientX-n.x-rect.left,oy:e.clientY-n.y-rect.top};},[nodes,conn]);useEffect(()=>{const mv=e=>{if(!drag.current)return;const rect=svgRef.current.getBoundingClientRect();setNodes(ns=>ns.map(n=>n.id===drag.current.id?{...n,x:Math.max(0,e.clientX-drag.current.ox-rect.left),y:Math.max(0,e.clientY-drag.current.oy-rect.top)}:n));};const up=()=>{drag.current=null;};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);return()=>{window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);};},[]);const upN=n=>{setNodes(ns=>ns.map(x=>x.id===n.id?n:x));setEditing(null);};const delN=id=>{setNodes(ns=>ns.filter(n=>n.id!==id));setEdges(es=>es.filter(e=>e.from!==id&&e.to!==id));setSelN(null);setEditing(null);};const delE=id=>{setEdges(es=>es.filter(e=>e.id!==id));setSelE(null);};const bb={padding:"7px 14px",borderRadius:7,fontSize:13,fontWeight:600,border:"1px solid #ddd",background:"#fff",color:"#333"};return(<div style={{display:"flex",flexDirection:"column",height:"100%"}}><div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 16px",background:"#fff",borderBottom:"1px solid #eee",flexWrap:"wrap"}}><button style={bb} onClick={()=>setNodes(ns=>[...ns,{id:uid(),x:200,y:300,w:160,h:44,label:"新しいノード",sub:"",color:"blue"}])}>＋ ノード追加</button><button style={{...bb,...(conn?{background:"#534AB7",color:"#fff",border:"none"}:{})}} onClick={()=>setConn(c=>c?null:selN||"__")}>{conn?"接続先をクリック…":"↗ 矢印を追加"}</button>{selE&&<button style={{...bb,border:"1px solid #D85A30",color:"#993C1D"}} onClick={()=>delE(selE)}>矢印を削除</button>}</div>{conn&&<div style={{background:"#EEEDFE",borderBottom:"1px solid #534AB7",padding:"6px 16px",fontSize:12,color:"#3C3489"}}>接続したいノードをクリックしてください</div>}<div style={{flex:1,overflow:"auto",position:"relative"}}><svg ref={svgRef} width={680} height={790} style={{display:"block",margin:"24px auto",background:"#fff",borderRadius:12,boxShadow:"0 2px 16px rgba(0,0,0,.08)",cursor:conn?"crosshair":"default"}} onClick={()=>{setSelN(null);setSelE(null);setEditing(null);setConn(null);}}><defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#B4B2A9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></marker></defs>{edges.map(e=><FlowEdge key={e.id} edge={e} nodes={nodes} sel={selE===e.id} onClick={id=>{setSelE(id);setSelN(null);setEditing(null);}}/>)}{nodes.map(n=><FlowNode key={n.id} node={n} sel={selN===n.id} conn={conn} onMD={onMD} onDbl={(e,id)=>{e.stopPropagation();setEditing(id);}}/>)}</svg>{editing&&(()=>{const n=nodes.find(x=>x.id===editing);return n?<FlowEdit node={n} onU={upN} onD={delN} onC={()=>setEditing(null)}/>:null;})()}</div><div style={{padding:"7px 16px",background:"#fff",borderTop:"1px solid #eee",fontSize:11,color:"#aaa"}}>ダブルクリック：編集 ／ ドラッグ：移動 ／ ↗矢印を追加→ノードクリック：接続 ／ 矢印クリック→削除</div></div>);}
 
-/* ========== SITE STRUCTURE TAB ========== */
-const SC={"corp.craft-bank.com":{bg:"#E0F7F7",bd:"#0097A7",tx:"#004D57"},"cbo.craft-bank.com":{bg:"#FFF9E0",bd:"#F9A825",tx:"#5D4000"},"craft-bank.com":{bg:"#FFEBEE",bd:"#E53935",tx:"#5D0000"},"souken.craft-bank.com":{bg:"#E8F5E9",bd:"#43A047",tx:"#1B5E20"}};
-const DS=[{id:"s1",domain:"corp.craft-bank.com",siteName:"コーポレートサイト",memo:"",pages:[{id:"p1",name:"コーポレートサイト",children:[{id:"c1",name:"会社情報"},{id:"c2",name:"サービス"},{id:"c3",name:"お知らせ"},{id:"c4",name:"採用情報"},{id:"c5",name:"LP"}]}]},{id:"s2",domain:"cbo.craft-bank.com",siteName:"クラフトバンクオフィス",memo:"",pages:[{id:"p2",name:"クラフトバンクオフィス",children:[{id:"c6",name:"お役立ち記事"},{id:"c7",name:"エクセルテンプレート"},{id:"c8",name:"導入事例"},{id:"c9",name:"クラフトバンク総建",isLink:true},{id:"c10",name:"資料ダウンロード"}]}]},{id:"s3",domain:"craft-bank.com",siteName:"クラフトバンク",memo:"",pages:[{id:"p3",name:"クラフトバンク",children:[{id:"c11",name:"元請・協力会社を探す"},{id:"c12",name:"案件を探す"},{id:"c13",name:"クラフトバンクオフィス",isLink:true},{id:"c14",name:"お役立ちセミナー"},{id:"c15",name:"職人酒場"},{id:"c16",name:"クラフトバンク総建",isLink:true}]}]},{id:"s4",domain:"souken.craft-bank.com",siteName:"クラフトバンク総建",memo:"",pages:[]}];
-let _sid=100,_pid=100,_cid=100;const suid=()=>"s"+(++_sid),puid=()=>"p"+(++_pid),cuid=()=>"c"+(++_cid);
+/* ── SiteCanvas: 自由配置キャンバス型サイト構造マップ ── */
+const SITE_INIT=[
+  {id:"s1",type:"box",x:20,y:30,w:170,h:36,text:"corp.craft-bank.com",bg:"#E0F7F7",fontSize:12,bold:true,mono:true},
+  {id:"s2",type:"box",x:230,y:30,w:150,h:36,text:"コーポレートサイト",bg:"#E0F7F7",fontSize:13,bold:true},
+  {id:"s3",type:"box",x:420,y:30,w:150,h:36,text:"コーポレートサイト",bg:"#E0F7F7",fontSize:13,bold:true},
+  {id:"s4",type:"box",x:610,y:10,w:130,h:32,text:"会社情報",bg:"#E0F7F7",fontSize:13},
+  {id:"s5",type:"box",x:610,y:52,w:130,h:32,text:"サービス",bg:"#E0F7F7",fontSize:13},
+  {id:"s6",type:"box",x:610,y:94,w:130,h:32,text:"お知らせ",bg:"#E0F7F7",fontSize:13},
+  {id:"s7",type:"box",x:610,y:136,w:130,h:32,text:"採用情報",bg:"#E0F7F7",fontSize:13},
+  {id:"s8",type:"box",x:610,y:178,w:130,h:32,text:"LP",bg:"#FFF9E0",fontSize:13},
 
-/* インライン編集可能テキスト */
-function EditableText({value,onChange,style={},inputStyle={},multiline=false,placeholder=""}){
-  const[editing,setEditing]=useState(false),[v,setV]=useState(value);
-  useEffect(()=>setV(value),[value]);
-  const commit=()=>{setEditing(false);if(v.trim()!==value)onChange(v.trim()||value);};
-  if(editing){
-    const base={border:"2px solid #534AB7",borderRadius:6,padding:"3px 7px",fontSize:"inherit",fontWeight:"inherit",outline:"none",background:"#fff",color:"inherit",minWidth:60,...inputStyle};
-    return multiline
-      ?<textarea autoFocus value={v} onChange={e=>setV(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Escape")setEditing(false);}} style={{...base,resize:"both",minHeight:60,lineHeight:1.5}} onClick={e=>e.stopPropagation()}/>
-      :<input autoFocus value={v} onChange={e=>setV(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")commit();if(e.key==="Escape")setEditing(false);}} style={base} onClick={e=>e.stopPropagation()}/>;
-  }
-  return(<span onClick={e=>{e.stopPropagation();setEditing(true);}} title="クリックして編集"
-    style={{cursor:"text",borderBottom:"1px dashed transparent",transition:"border-color .15s",...style,":hover":{borderColor:"#888"}}}
-    onMouseEnter={e=>e.currentTarget.style.borderBottomColor="#aaa"}
-    onMouseLeave={e=>e.currentTarget.style.borderBottomColor="transparent"}>
-    {value||<span style={{color:"#aaa",fontStyle:"italic"}}>{placeholder}</span>}
-  </span>);
+  {id:"s9",type:"box",x:20,y:240,w:170,h:36,text:"cbo.craft-bank.com",bg:"#FFF9E0",fontSize:12,bold:true,mono:true},
+  {id:"s10",type:"box",x:230,y:240,w:170,h:36,text:"クラフトバンクオフィス",bg:"#FFF9E0",fontSize:13,bold:true},
+  {id:"s11",type:"box",x:440,y:240,w:170,h:36,text:"クラフトバンクオフィス",bg:"#FFF9E0",fontSize:13,bold:true},
+  {id:"s12",type:"box",x:650,y:220,w:130,h:32,text:"お役立ち記事",bg:"#FFF9E0",fontSize:13},
+  {id:"s13",type:"box",x:650,y:262,w:130,h:32,text:"エクセルテンプレート",bg:"#FFF9E0",fontSize:12},
+  {id:"s14",type:"box",x:650,y:304,w:130,h:32,text:"導入事例",bg:"#FFF9E0",fontSize:13},
+  {id:"s15",type:"box",x:650,y:346,w:130,h:32,text:"クラフトバンク総建",bg:"#E8F5E9",fontSize:12},
+  {id:"s16",type:"box",x:650,y:388,w:130,h:32,text:"資料ダウンロード",bg:"#FFF9E0",fontSize:13},
+
+  {id:"s17",type:"box",x:20,y:450,w:170,h:36,text:"craft-bank.com",bg:"#FFEBEE",fontSize:12,bold:true,mono:true},
+  {id:"s18",type:"box",x:230,y:450,w:150,h:36,text:"クラフトバンク",bg:"#FFEBEE",fontSize:13,bold:true},
+  {id:"s19",type:"box",x:420,y:450,w:150,h:36,text:"クラフトバンク",bg:"#FFEBEE",fontSize:13,bold:true},
+  {id:"s20",type:"box",x:610,y:430,w:150,h:32,text:"元請・協力会社を探す",bg:"#FFEBEE",fontSize:12},
+  {id:"s21",type:"box",x:610,y:472,w:150,h:32,text:"案件を探す",bg:"#FFEBEE",fontSize:13},
+  {id:"s22",type:"box",x:610,y:514,w:150,h:32,text:"クラフトバンクオフィス",bg:"#FFF9E0",fontSize:12},
+  {id:"s23",type:"box",x:610,y:556,w:150,h:32,text:"お役立ちセミナー",bg:"#FFEBEE",fontSize:13},
+  {id:"s24",type:"box",x:610,y:598,w:150,h:32,text:"職人酒場",bg:"#FFEBEE",fontSize:13},
+  {id:"s25",type:"box",x:610,y:640,w:150,h:32,text:"クラフトバンク総建",bg:"#E8F5E9",fontSize:12},
+
+  {id:"s26",type:"box",x:20,y:700,w:170,h:36,text:"souken.craft-bank.com",bg:"#E8F5E9",fontSize:11,bold:true,mono:true},
+  {id:"s27",type:"box",x:230,y:700,w:150,h:36,text:"クラフトバンク総建",bg:"#E8F5E9",fontSize:13,bold:true},
+];
+const SITE_CONN_INIT=[
+  {id:"c1",from:"s1",to:"s2"},{id:"c2",from:"s2",to:"s3"},{id:"c3",from:"s3",to:"s4"},{id:"c4",from:"s3",to:"s5"},{id:"c5",from:"s3",to:"s6"},{id:"c6",from:"s3",to:"s7"},{id:"c7",from:"s3",to:"s8"},
+  {id:"c8",from:"s9",to:"s10"},{id:"c9",from:"s10",to:"s11"},{id:"c10",from:"s11",to:"s12"},{id:"c11",from:"s11",to:"s13"},{id:"c12",from:"s11",to:"s14"},{id:"c13",from:"s11",to:"s15"},{id:"c14",from:"s11",to:"s16"},
+  {id:"c15",from:"s17",to:"s18"},{id:"c16",from:"s18",to:"s19"},{id:"c17",from:"s19",to:"s20"},{id:"c18",from:"s19",to:"s21"},{id:"c19",from:"s19",to:"s22"},{id:"c20",from:"s19",to:"s23"},{id:"c21",from:"s19",to:"s24"},{id:"c22",from:"s19",to:"s25"},
+  {id:"c23",from:"s26",to:"s27"},
+];
+
+function SiteEdge({conn,items,sel,onClick}){
+  const a=items.find(i=>i.id===conn.from),b=items.find(i=>i.id===conn.to);
+  if(!a||!b)return null;
+  const ax=a.x+a.w,ay=a.y+a.h/2,bx=b.x,by=b.y+b.h/2;
+  const mx=(ax+bx)/2;
+  const d=`M${ax},${ay} C${mx},${ay} ${mx},${by} ${bx},${by}`;
+  return(<g onClick={e=>{e.stopPropagation();onClick(conn.id);}} style={{cursor:"pointer"}}>
+    <path d={d} fill="none" stroke="transparent" strokeWidth={10}/>
+    <path d={d} fill="none" stroke={sel?"#534AB7":"#B4B2A9"} strokeWidth={1.5} markerEnd="url(#sarr)"/>
+  </g>);
 }
 
-function SiteStructureTab(){
-  const[sites,setSites]=useState(DS),[selSite,setSelSite]=useState(null),[selPage,setSelPage]=useState(null),[showAdd,setShowAdd]=useState(false),[nDomain,setNDomain]=useState(""),[nSite,setNSite]=useState(""),[nPage,setNPage]=useState(""),[nChild,setNChild]=useState("");
-
-  const updSite=(id,patch)=>setSites(ss=>ss.map(s=>s.id===id?{...s,...patch}:s));
-  const updPage=(sId,pId,patch)=>setSites(ss=>ss.map(s=>s.id===sId?{...s,pages:s.pages.map(p=>p.id===pId?{...p,...patch}:p)}:s));
-  const updChild=(sId,pId,cId,patch)=>setSites(ss=>ss.map(s=>s.id===sId?{...s,pages:s.pages.map(p=>p.id===pId?{...p,children:p.children.map(c=>c.id===cId?{...c,...patch}:c)}:p)}:s));
-  const addSite=()=>{if(!nSite.trim())return;setSites(ss=>[...ss,{id:suid(),domain:nDomain,siteName:nSite,memo:"",pages:[]}]);setNSite("");setNDomain("");setShowAdd(false);};
-  const addPage=()=>{if(!nPage.trim()||!selSite)return;setSites(ss=>ss.map(s=>s.id===selSite?{...s,pages:[...s.pages,{id:puid(),name:nPage,children:[]}]}:s));setNPage("");};
-  const addChild=()=>{if(!nChild.trim()||!selSite||!selPage)return;setSites(ss=>ss.map(s=>s.id===selSite?{...s,pages:s.pages.map(p=>p.id===selPage?{...p,children:[...p.children,{id:cuid(),name:nChild}]}:p)}:s));setNChild("");};
-  const delSite=id=>setSites(ss=>ss.filter(s=>s.id!==id));
-  const delPage=(sId,pId)=>setSites(ss=>ss.map(s=>s.id===sId?{...s,pages:s.pages.filter(p=>p.id!==pId)}:s));
-  const delChild=(sId,pId,cId)=>setSites(ss=>ss.map(s=>s.id===sId?{...s,pages:s.pages.map(p=>p.id===pId?{...p,children:p.children.filter(c=>c.id!==cId)}:p)}:s));
-
-  const inp={padding:"7px 10px",borderRadius:6,border:"1px solid #ddd",fontSize:13,outline:"none",flex:1};
-  const addBtn={padding:"7px 14px",borderRadius:6,border:"none",background:"#534AB7",color:"#fff",fontSize:13,fontWeight:600};
-  const delBtn={padding:"3px 8px",borderRadius:5,border:"1px solid #D85A30",background:"transparent",color:"#993C1D",fontSize:11,cursor:"pointer",flexShrink:0};
-  const Con=()=>(<div style={{display:"flex",alignItems:"center",flexShrink:0,margin:"0 6px"}}><div style={{width:20,height:2,background:"#C0BDB6"}}/><div style={{width:0,height:0,borderTop:"5px solid transparent",borderBottom:"5px solid transparent",borderLeft:"7px solid #C0BDB6"}}/></div>);
-
-  return(<div style={{display:"flex",flexDirection:"column",height:"100%",overflow:"hidden"}}>
-    <div style={{padding:"10px 16px",background:"#fff",borderBottom:"1px solid #eee",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-      <button style={{padding:"7px 14px",borderRadius:7,fontSize:13,fontWeight:600,border:"1px solid #ddd",background:"#fff",color:"#333"}} onClick={()=>setShowAdd(v=>!v)}>＋ サイトを追加</button>
-      {showAdd&&(<><input value={nDomain} onChange={e=>setNDomain(e.target.value)} placeholder="ドメイン (例: sub.example.com)" style={{...inp,width:200}}/><input value={nSite} onChange={e=>setNSite(e.target.value)} placeholder="サイト名" style={{...inp,width:140}}/><button onClick={addSite} style={addBtn}>追加</button><button onClick={()=>setShowAdd(false)} style={{...addBtn,background:"#888"}}>キャンセル</button></>)}
-      <span style={{fontSize:11,color:"#aaa",marginLeft:8}}>💡 テキストをクリックすると直接編集できます</span>
-    </div>
-    <div style={{flex:1,overflow:"auto",padding:"24px 20px"}}>
-      <div style={{display:"flex",flexDirection:"column",gap:32,minWidth:"max-content"}}>
-        {sites.map(site=>{
-          const sc=SC[site.domain]||{bg:"#F1EFE8",bd:"#888780",tx:"#2C2C2A"};
-          const nodeStyle={padding:"8px 14px",borderRadius:8,border:`1.5px solid ${sc.bd}`,background:sc.bg,fontSize:13,fontWeight:600,color:sc.tx,whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6};
-          return(<div key={site.id}>
-            <div style={{display:"flex",alignItems:"flex-start"}}>
-              {/* ドメイン列 */}
-              <div style={{...nodeStyle,minWidth:190,fontFamily:"monospace",fontSize:12,cursor:"text"}}>
-                <EditableText value={site.domain||"（ドメイン未設定）"} onChange={v=>updSite(site.id,{domain:v})} placeholder="domain.com" inputStyle={{fontFamily:"monospace",fontSize:12}}/>
-                <button onClick={()=>delSite(site.id)} style={delBtn}>削除</button>
-              </div>
-              <Con/>
-              {/* サイト名列 */}
-              <div style={{...nodeStyle,minWidth:170,cursor:"pointer"}} onClick={()=>setSelSite(s=>s===site.id?null:site.id)}>
-                <EditableText value={site.siteName} onChange={v=>updSite(site.id,{siteName:v})} placeholder="サイト名"/>
-              </div>
-              {site.pages.length>0&&<Con/>}
-              {/* ページ列 */}
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                {site.pages.map(page=>(
-                  <div key={page.id} style={{display:"flex",alignItems:"flex-start"}}>
-                    <div style={{...nodeStyle,cursor:"pointer"}} onClick={()=>setSelPage(p=>p===page.id?null:page.id)}>
-                      <EditableText value={page.name} onChange={v=>updPage(site.id,page.id,{name:v})} placeholder="ページ名"/>
-                      <button onClick={e=>{e.stopPropagation();delPage(site.id,page.id);}} style={delBtn}>削除</button>
-                    </div>
-                    {page.children&&page.children.length>0&&<Con/>}
-                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                      {page.children&&page.children.map(child=>(
-                        <div key={child.id} style={{display:"flex",alignItems:"center",gap:6}}>
-                          <div style={{padding:"7px 12px",borderRadius:8,border:`1.5px solid ${child.isLink?"#43A047":"#ddd"}`,background:child.isLink?"#E8F5E9":"#fff",fontSize:13,color:child.isLink?"#1B5E20":"#333",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6}}>
-                            <EditableText value={child.name} onChange={v=>updChild(site.id,page.id,child.id,{name:v})} style={{fontStyle:child.isLink?"italic":"normal",color:"inherit"}} placeholder="ページ名"/>
-                          </div>
-                          <button onClick={()=>delChild(site.id,page.id,child.id)} style={delBtn}>削除</button>
-                        </div>
-                      ))}
-                      {selSite===site.id&&selPage===page.id&&(
-                        <div style={{display:"flex",gap:6,marginTop:2}}>
-                          <input value={nChild} onChange={e=>setNChild(e.target.value)} placeholder="ページを追加" style={{...inp,width:140,fontSize:12}} onKeyDown={e=>e.key==="Enter"&&addChild()}/>
-                          <button onClick={addChild} style={{...addBtn,padding:"6px 10px",fontSize:12}}>＋</button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {selSite===site.id&&(
-                  <div style={{display:"flex",gap:6,marginTop:2}}>
-                    <input value={nPage} onChange={e=>setNPage(e.target.value)} placeholder="ページグループを追加" style={{...inp,width:170,fontSize:12}} onKeyDown={e=>e.key==="Enter"&&addPage()}/>
-                    <button onClick={addPage} style={{...addBtn,padding:"6px 10px",fontSize:12}}>＋</button>
-                  </div>
-                )}
-              </div>
-            </div>
-            {/* メモエリア */}
-            <div style={{marginTop:8,marginLeft:4,display:"flex",alignItems:"flex-start",gap:8}}>
-              <span style={{fontSize:11,color:"#aaa",paddingTop:4,flexShrink:0}}>メモ：</span>
-              <EditableText value={site.memo||""} onChange={v=>updSite(site.id,{memo:v})} multiline placeholder="自由にメモを記入できます（クリックして編集）"
-                style={{fontSize:12,color:"#555",minWidth:300,display:"block",padding:"4px 6px",borderRadius:4,background:site.memo?"#fffde7":"transparent",border:site.memo?"1px solid #f9a825":"1px dashed #ddd",lineHeight:1.6,whiteSpace:"pre-wrap"}}
-                inputStyle={{width:400,fontSize:12}}/>
-            </div>
-          </div>);
-        })}
-      </div>
-      <div style={{marginTop:28,padding:"10px 14px",background:"#fff",borderRadius:8,border:"1px solid #eee",fontSize:12,color:"#666",display:"flex",gap:20,flexWrap:"wrap"}}>
-        <span>✏️ テキストをクリック→直接編集（Enterで確定）</span>
-        <span>📌 サイト名クリック→ページ追加モード ／ ページ名クリック→子ページ追加</span>
-        <span style={{color:"#1B5E20",fontStyle:"italic"}}>緑斜体＝他サイトリンク</span>
-      </div>
-    </div>
-  </div>);
+function SiteItem({item,sel,conn,onMD,onDbl}){
+  const bg=item.bg||"#fff";
+  const bd=BORDER_MAP[bg]||"#ccc";
+  const tx=TEXT_MAP[bg]||"#333";
+  return(<g onMouseDown={e=>onMD(e,item.id)} onDoubleClick={e=>onDbl(e,item.id)} style={{cursor:conn?"crosshair":"grab"}}>
+    <rect x={item.x} y={item.y} width={item.w} height={item.h} rx={7}
+      fill={bg} stroke={sel?"#534AB7":bd} strokeWidth={sel?2:1.5}/>
+    <text x={item.x+item.w/2} y={item.y+item.h/2} textAnchor="middle" dominantBaseline="central"
+      fontSize={item.fontSize||13} fontWeight={item.bold?600:400} fill={tx}
+      fontFamily={item.mono?"monospace":"inherit"}>
+      {item.text}
+    </text>
+  </g>);
 }
 
-/* ========== GITHUB MODAL ========== */
-function GithubModal({data,onClose}){const[tok,setTok]=useState(""),[owner,setOwner]=useState("iotsuka-cloud"),[repo,setRepo]=useState("marketing-flow"),[path,setPath]=useState("flow/data.json"),[st,setSt]=useState(""),[saving,setSaving]=useState(false);const save=async()=>{if(!tok){setSt("⚠️ Tokenを入力してください");return;}setSaving(true);setSt("保存中...");try{let sha;const g=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`,{headers:{Authorization:`token ${tok}`,Accept:"application/vnd.github.v3+json"}});if(g.ok){const j=await g.json();sha=j.sha;}const content=btoa(unescape(encodeURIComponent(JSON.stringify(data,null,2))));const p=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`,{method:"PUT",headers:{Authorization:`token ${tok}`,"Content-Type":"application/json"},body:JSON.stringify({message:"Update marketing hub",content,...(sha?{sha}:{})})});setSt(p.ok?"✅ 保存しました！":"❌ "+(await p.json()).message);}catch(e){setSt("❌ "+e.message);}setSaving(false);};const i2={width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid #ddd",fontSize:13,outline:"none",boxSizing:"border-box"};return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}}><div style={{background:"#fff",borderRadius:12,padding:28,width:400,boxShadow:"0 8px 40px rgba(0,0,0,.2)"}}><div style={{fontSize:16,fontWeight:600,marginBottom:20}}>💾 GitHub に保存</div>{[["Token *",tok,setTok,"password","ghp_xxx"],["オーナー",owner,setOwner,"text","iotsuka-cloud"],["リポジトリ",repo,setRepo,"text","marketing-flow"],["保存パス",path,setPath,"text","flow/data.json"]].map(([lb,v,sv,tp,ph])=>(<div key={lb} style={{marginBottom:12}}><div style={{fontSize:12,color:"#666",marginBottom:3}}>{lb}</div><input type={tp} value={v} onChange={e=>sv(e.target.value)} placeholder={ph} style={i2}/></div>))}{st&&<div style={{fontSize:12,margin:"8px 0",color:st.startsWith("✅")?"#3B6D11":st.startsWith("❌")?"#993C1D":"#666"}}>{st}</div>}<div style={{display:"flex",gap:10,marginTop:12}}><button onClick={save} disabled={saving} style={{flex:1,padding:"9px",borderRadius:7,border:"none",background:"#534AB7",color:"#fff",fontSize:13,fontWeight:600}}>{saving?"保存中...":"保存する"}</button><button onClick={onClose} style={{flex:1,padding:"9px",borderRadius:7,border:"1px solid #ddd",background:"transparent",color:"#666",fontSize:13}}>キャンセル</button></div></div></div>);}
+function SiteTextItem({item,sel,onMD,onDbl}){
+  return(<g onMouseDown={e=>onMD(e,item.id)} onDoubleClick={e=>onDbl(e,item.id)} style={{cursor:"grab"}}>
+    {sel&&<rect x={item.x-4} y={item.y-4} width={(item.w||200)+8} height={(item.fontSize||14)+12} rx={3} fill="none" stroke="#534AB7" strokeWidth={1} strokeDasharray="3 2"/>}
+    <text x={item.x} y={item.y+(item.fontSize||14)/2+4} fontSize={item.fontSize||14} fontWeight={item.bold?600:400} fill={item.color||"#333"}>{item.text}</text>
+  </g>);
+}
 
-/* ========== APP ========== */
-function App(){const[tab,setTab]=useState("flow"),[showGH,setShowGH]=useState(false);const ts=a=>({padding:"10px 24px",fontSize:14,fontWeight:600,border:"none",cursor:"pointer",background:a?"#fff":"transparent",color:a?"#534AB7":"#888",borderBottom:a?"2px solid #534AB7":"2px solid transparent"});return(<div style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden"}}><div style={{display:"flex",alignItems:"center",background:"#fff",borderBottom:"1px solid #eee",flexShrink:0,paddingLeft:16}}><span style={{fontSize:15,fontWeight:700,color:"#222",marginRight:16}}>📊 Marketing Hub</span><button style={ts(tab==="flow")} onClick={()=>setTab("flow")}>データ遷移マップ</button><button style={ts(tab==="site")} onClick={()=>setTab("site")}>サイト構造マップ</button><div style={{flex:1}}/><button onClick={()=>setShowGH(true)} style={{margin:"0 16px",padding:"7px 16px",borderRadius:7,border:"none",background:"#534AB7",color:"#fff",fontSize:13,fontWeight:600}}>💾 GitHubに保存</button></div><div style={{flex:1,overflow:"hidden"}}>{tab==="flow"?<FlowTab/>:<SiteStructureTab/>}</div>{showGH&&<GithubModal data={{version:3}} onClose={()=>setShowGH(false)}/>}</div>);}
+function SiteEditPanel({item,onU,onD,onC}){
+  const[text,setText]=useState(item.text||"");
+  const[bg,setBg]=useState(item.bg||"#fff");
+  const[w,setW]=useState(item.w||150);
+  const[h,setH]=useState(item.h||36);
+  const[fs,setFs]=useState(item.fontSize||13);
+  const[bold,setBold]=useState(item.bold||false);
+  const[mono,setMono]=useState(item.mono||false);
+  const[color,setColor]=useState(item.color||"#333");
+  const isText=item.type==="text";
+  const si={width:"100%",padding:"6px 8px",borderRadius:5,border:"1px solid #ddd",fontSize:12,marginTop:2,outline:"none"};
+  const row={marginBottom:10};
+  const lbl={fontSize:11,color:"#888"};
+  return(<div style={{position:"absolute",top:8,right:8,width:220,background:"#fff",borderRadius:10,boxShadow:"0 4px 20px rgba(0,0,0,.15)",padding:14,zIndex:50,border:"1px solid #eee",maxHeight:"90vh",overflow:"auto"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+      <span style={{fontSize:13,fontWeight:600}}>{isText?"テキストを編集":"ボックスを編集"}</span>
+      <button onClick={onC} style={{background:"none",border:"none",fontSize:18,color:"#aaa"}}>×</button>
+    </div>
+    <div style={row}><div style={lbl}>テキスト</div><textarea value={text} onChange={e=>setText(e.target.value)} style={{...si,height:60,resize:"vertical"}}/></div>
+    <div style={row}><div style={lbl}>文字サイズ</div><input type="number" value={fs} min={8} max={32} onChange={e=>setFs(+e.target.value)} style={si}/></div>
+    <div style={{...row,display:"flex",gap:10}}>
+      <label style={{display:"flex",alignItems:"center",gap:4,fontSize:12,cursor:"pointer"}}><input type="checkbox" checked={bold} onChange={e=>setBold(e.target.checked)}/> 太字</label>
+      {!isText&&<label style={{display:"flex",alignItems:"center",gap:4,fontSize:12,cursor:"pointer"}}><input type="checkbox" checked={mono} onChange={e=>setMono(e.target.checked)}/> 等幅</label>}
+    </div>
+    {!isText&&(<>
+      <div style={row}><div style={lbl}>幅</div><input type="number" value={w} min={40} max={600} onChange={e=>setW(+e.target.value)} style={si}/></div>
+      <div style={row}><div style={lbl}>高さ</div><input type="number" value={h} min={20} max={200} onChange={e=>setH(+e.target.value)} style={si}/></div>
+      <div style={row}>
+        <div style={lbl}>背景色</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:4}}>
+          {PALETTE.map(p=>(<div key={p} onClick={()=>setBg(p)} style={{width:20,height:20,borderRadius:4,background:p,cursor:"pointer",border:bg===p?"2.5px solid #534AB7":"1.5px solid #ccc"}}/>))}
+        </div>
+        <input value={bg} onChange={e=>setBg(e.target.value)} placeholder="#ffffff" style={{...si,marginTop:6}}/>
+      </div>
+    </>)}
+    {isText&&(<div style={row}>
+      <div style={lbl}>文字色</div>
+      <input value={color} onChange={e=>setColor(e.target.value)} placeholder="#333333" style={si}/>
+    </div>)}
+    <button onClick={()=>onU({...item,text,bg,w:+w,h:+h,fontSize:+fs,bold,mono,color})} style={{width:"100%",padding:"8px",borderRadius:6,border:"none",background:"#534AB7",color:"#fff",fontSize:13,fontWeight:600,marginBottom:8}}>適用</button>
+    <button onClick={()=>onD(item.id)} style={{width:"100%",padding:"8px",borderRadius:6,border:"1px solid #D85A30",background:"transparent",color:"#993C1D",fontSize:13}}>削除</button>
+  </div>);}
+
+function SiteTab(){
+  const[items,setItems]=useState(SITE_INIT);
+  const[conns,setConns]=useState(SITE_CONN_INIT);
+  const[selI,setSelI]=useState(null),[selC,setSelC]=useState(null),[editing,setEditing]=useState(null),[connMode,setConnMode]=useState(null);
+  const drag=useRef(null),svgRef=useRef(null);
+
+  const onMD=useCallback((e,id)=>{
+    if(connMode){if(connMode!==id)setConns(cs=>[...cs,{id:suid(),from:connMode,to:id}]);setConnMode(null);return;}
+    e.stopPropagation();setSelI(id);setSelC(null);setEditing(null);
+    const it=items.find(i=>i.id===id),rect=svgRef.current.getBoundingClientRect();
+    drag.current={id,ox:e.clientX-it.x-rect.left,oy:e.clientY-it.y-rect.top};
+  },[items,connMode]);
+
+  useEffect(()=>{
+    const mv=e=>{if(!drag.current)return;const rect=svgRef.current.getBoundingClientRect();
+      setItems(is=>is.map(i=>i.id===drag.current.id?{...i,x:Math.max(0,e.clientX-drag.current.ox-rect.left),y:Math.max(0,e.clientY-drag.current.oy-rect.top)}:i));};
+    const up=()=>{drag.current=null;};
+    window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);
+    return()=>{window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);};
+  },[]);
+
+  const upI=i=>{setItems(is=>is.map(x=>x.id===i.id?i:x));setEditing(null);};
+  const delI=id=>{setItems(is=>is.filter(i=>i.id!==id));setConns(cs=>cs.filter(c=>c.from!==id&&c.to!==id));setSelI(null);setEditing(null);};
+  const delC=id=>{setConns(cs=>cs.filter(c=>c.id!==id));setSelC(null);};
+
+  const addBox=()=>setItems(is=>[...is,{id:suid(),type:"box",x:100,y:100,w:150,h:36,text:"新しいボックス",bg:"#E6F1FB",fontSize:13,bold:false,mono:false}]);
+  const addText=()=>setItems(is=>[...is,{id:suid(),type:"text",x:100,y:100,text:"テキスト",fontSize:14,bold:false,color:"#333"}]);
+
+  const bb={padding:"7px 14px",borderRadius:7,fontSize:13,fontWeight:600,border:"1px solid #ddd",background:"#fff",color:"#333"};
+  const maxX=items.reduce((m,i)=>Math.max(m,i.x+(i.w||200)),900);
+  const maxY=items.reduce((m,i)=>Math.max(m,i.y+(i.h||30)),750);
+
+  return(<div style={{display:"flex",flexDirection:"column",height:"100%"}}>
+    <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 16px",background:"#fff",borderBottom:"1px solid #eee",flexWrap:"wrap"}}>
+      <button style={bb} onClick={addBox}>＋ ボックス追加</button>
+      <button style={bb} onClick={addText}>＋ テキスト追加</button>
+      <button style={{...bb,...(connMode?{background:"#534AB7",color:"#fff",border:"none"}:{})}} onClick={()=>setConnMode(c=>c?null:selI||"__")}>
+        {connMode?"接続先をクリック…":"↗ 矢印を追加"}
+      </button>
+      {selC&&<button style={{...bb,border:"1px solid #D85A30",color:"#993C1D"}} onClick={()=>delC(selC)}>矢印を削除</button>}
+    </div>
+    {connMode&&<div style={{background:"#EEEDFE",borderBottom:"1px solid #534AB7",padding:"6px 16px",fontSize:12,color:"#3C3489"}}>接続したいボックスをクリックしてください</div>}
+    <div style={{flex:1,overflow:"auto",position:"relative"}}>
+      <svg ref={svgRef} width={Math.max(maxX+60,900)} height={Math.max(maxY+60,800)}
+        style={{display:"block",margin:"16px",background:"#fff",borderRadius:12,boxShadow:"0 2px 16px rgba(0,0,0,.08)",cursor:connMode?"crosshair":"default"}}
+        onClick={()=>{setSelI(null);setSelC(null);setEditing(null);if(!connMode)return;setConnMode(null);}}>
+        <defs><marker id="sarr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="#B4B2A9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </marker></defs>
+        {conns.map(c=><SiteEdge key={c.id} conn={c} items={items} sel={selC===c.id} onClick={id=>{setSelC(id);setSelI(null);setEditing(null);}}/>)}
+        {items.map(it=>it.type==="text"
+          ?<SiteTextItem key={it.id} item={it} sel={selI===it.id} onMD={onMD} onDbl={(e,id)=>{e.stopPropagation();setEditing(id);}}/>
+          :<SiteItem key={it.id} item={it} sel={selI===it.id} conn={connMode} onMD={onMD} onDbl={(e,id)=>{e.stopPropagation();setEditing(id);}}/>
+        )}
+      </svg>
+      {editing&&(()=>{const it=items.find(x=>x.id===editing);return it?<SiteEditPanel item={it} onU={upI} onD={delI} onC={()=>setEditing(null)}/>:null;})()}
+    </div>
+    <div style={{padding:"7px 16px",background:"#fff",borderTop:"1px solid #eee",fontSize:11,color:"#aaa"}}>
+      ダブルクリック：編集（色・サイズ・テキスト） ／ ドラッグ：移動 ／ ↗矢印を追加→クリック：接続 ／ 矢印クリック→削除
+    </div>
+  </div>);}
+
+/* ── GitHub保存 ── */
+function GithubModal({onClose}){const[tok,setTok]=useState(""),[st,setSt]=useState(""),[saving,setSaving]=useState(false);const si={width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid #ddd",fontSize:13,outline:"none"};return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}}><div style={{background:"#fff",borderRadius:12,padding:28,width:360,boxShadow:"0 8px 40px rgba(0,0,0,.2)"}}><div style={{fontSize:16,fontWeight:600,marginBottom:16}}>💾 GitHubに保存</div><div style={{fontSize:12,color:"#666",marginBottom:4}}>Personal Access Token</div><input type="password" value={tok} onChange={e=>setTok(e.target.value)} placeholder="github_pat_..." style={si}/>{st&&<div style={{fontSize:12,marginTop:8,color:st.startsWith("✅")?"#3B6D11":"#993C1D"}}>{st}</div>}<div style={{display:"flex",gap:10,marginTop:16}}><button disabled={saving} onClick={async()=>{if(!tok){setSt("⚠️ Token必須");return;}setSaving(true);setSt("保存中...");try{const g=await fetch("https://api.github.com/repos/iotsuka-cloud/marketing-flow/contents/flow/data.json",{headers:{Authorization:`token ${tok}`,Accept:"application/vnd.github.v3+json"}});let sha;if(g.ok){const j=await g.json();sha=j.sha;}const p=await fetch("https://api.github.com/repos/iotsuka-cloud/marketing-flow/contents/flow/data.json",{method:"PUT",headers:{Authorization:`token ${tok}`,"Content-Type":"application/json"},body:JSON.stringify({message:"Save hub data",content:btoa(unescape(encodeURIComponent(JSON.stringify({v:3},null,2)))),...(sha?{sha}:{})})});setSt(p.ok?"✅ 保存しました":"❌ エラー");}catch(e){setSt("❌ "+e.message);}setSaving(false);}} style={{flex:1,padding:"9px",borderRadius:7,border:"none",background:"#534AB7",color:"#fff",fontSize:13,fontWeight:600}}>{saving?"保存中...":"保存する"}</button><button onClick={onClose} style={{flex:1,padding:"9px",borderRadius:7,border:"1px solid #ddd",background:"transparent",color:"#666",fontSize:13}}>閉じる</button></div></div></div>);}
+
+/* ── App ── */
+function App(){const[tab,setTab]=useState("flow"),[showGH,setShowGH]=useState(false);const ts=a=>({padding:"10px 24px",fontSize:14,fontWeight:600,border:"none",cursor:"pointer",background:a?"#fff":"transparent",color:a?"#534AB7":"#888",borderBottom:a?"2px solid #534AB7":"2px solid transparent"});return(<div style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden"}}><div style={{display:"flex",alignItems:"center",background:"#fff",borderBottom:"1px solid #eee",flexShrink:0,paddingLeft:16}}><span style={{fontSize:15,fontWeight:700,color:"#222",marginRight:16}}>📊 Marketing Hub</span><button style={ts(tab==="flow")} onClick={()=>setTab("flow")}>データ遷移マップ</button><button style={ts(tab==="site")} onClick={()=>setTab("site")}>サイト構造マップ</button><div style={{flex:1}}/><button onClick={()=>setShowGH(true)} style={{margin:"0 16px",padding:"7px 16px",borderRadius:7,border:"none",background:"#534AB7",color:"#fff",fontSize:13,fontWeight:600}}>💾 GitHubに保存</button></div><div style={{flex:1,overflow:"hidden"}}>{tab==="flow"?<FlowTab/>:<SiteTab/>}</div>{showGH&&<GithubModal onClose={()=>setShowGH(false)}/>}</div>);}
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-</script>
-</body>
-</html>
+</script></body></html>
