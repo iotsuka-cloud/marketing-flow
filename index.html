@@ -103,13 +103,12 @@ function SiteItem({item,sel,conn,onMD,onDbl}){
   const bg=item.bg||"#fff";
   const bd=BORDER_MAP[bg]||"#ccc";
   const tx=TEXT_MAP[bg]||"#333";
-  const hasSub=!!item.sub;
-  const hasUrl=!!item.url;
-  const mainY=hasSub?item.y+item.h*0.35:(hasUrl?item.y+item.h*0.32:item.y+item.h/2);
+  const hasSub=item.sub&&item.sub.length>0;
+  const hasUrl=item.url&&item.url.length>0;
+  const mainY=hasSub?item.y+item.h*0.33:(item.y+item.h/2);
   const handleClick=e=>{if(hasUrl&&!conn){e.stopPropagation();window.open(item.url,'_blank');}};
   return(<g onMouseDown={e=>onMD(e,item.id)} onDoubleClick={e=>onDbl(e,item.id)}
-    onClick={handleClick}
-    style={{cursor:conn?"crosshair":hasUrl?"pointer":"grab"}}>
+    onClick={handleClick} style={{cursor:conn?"crosshair":hasUrl?"pointer":"grab"}}>
     <rect x={item.x} y={item.y} width={item.w} height={item.h} rx={7}
       fill={bg} stroke={sel?"#534AB7":bd} strokeWidth={sel?2:1.5}/>
     <text x={item.x+item.w/2} y={mainY} textAnchor="middle" dominantBaseline="central"
@@ -117,12 +116,12 @@ function SiteItem({item,sel,conn,onMD,onDbl}){
       fontFamily={item.mono?"monospace":"inherit"}>
       {item.text}
     </text>
-    {hasSub&&<text x={item.x+item.w/2} y={item.y+item.h*0.7} textAnchor="middle" dominantBaseline="central"
-      fontSize={(item.fontSize||13)-2} fill={tx} opacity={0.7}>{item.sub}</text>}
-    {hasUrl&&<text x={item.x+item.w/2} y={item.y+item.h-6} textAnchor="middle"
-      fontSize={9} fill={tx} opacity={0.55}>↗ {item.url.replace(/https?:///,'').substring(0,30)}</text>}
+    {hasSub&&<text x={item.x+item.w/2} y={item.y+item.h*0.68} textAnchor="middle"
+      dominantBaseline="central" fontSize={(item.fontSize||13)-2} fill={tx} opacity={0.72}
+      fontFamily={item.mono?"monospace":"inherit"}>{item.sub}</text>}
+    {hasUrl&&<text x={item.x+item.w/2} y={item.y+item.h-5} textAnchor="middle"
+      fontSize={9} fill={tx} opacity={0.55}>{"↗ "+item.url.replace(/https?:\/\//,"").substring(0,28)}</text>}
   </g>);}
-
 function SiteTextItem({item,sel,onMD,onDbl}){
   return(<g onMouseDown={e=>onMD(e,item.id)} onDoubleClick={e=>onDbl(e,item.id)} style={{cursor:"grab"}}>
     {sel&&<rect x={item.x-4} y={item.y-4} width={(item.w||200)+8} height={(item.fontSize||14)+12} rx={3} fill="none" stroke="#534AB7" strokeWidth={1} strokeDasharray="3 2"/>}
